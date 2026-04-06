@@ -12,5 +12,14 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    // Highlights: read and write from frontend (personal tool)
+    match /highlights/{docId} {
+      allow read, write: if true;
+    }
+    // Learning profile: read from frontend, write from backend only
+    match /learningProfile/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

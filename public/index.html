@@ -28,6 +28,7 @@
         <a href="#digest" class="active" data-view="digest">digest</a>
         <a href="#library" data-view="library">library</a>
         <a href="#add" data-view="add">add</a>
+        <a href="#highlights" data-view="highlights">highlights</a>
       </nav>
     </header>
 
@@ -123,6 +124,8 @@
 
       <div id="item-deep-dive"></div>
 
+      <div id="item-fulltext"></div>
+
       <div id="item-actions" style="margin-top: var(--space-lg); display: flex; gap: var(--space-sm);">
         <button class="btn btn--primary" id="btn-go-deeper">go-deeper</button>
         <button class="btn" id="btn-open-source">open source</button>
@@ -142,6 +145,29 @@
       </div>
     </section>
 
+    <!-- ============================================
+         VIEW: Highlights
+         ============================================ -->
+    <section id="view-highlights" class="view" hidden>
+      <div class="section-header">highlights</div>
+      <div class="highlight-tabs">
+        <a href="#" class="highlight-tab active" data-tab="by-article">by article</a>
+        <a href="#" class="highlight-tab" data-tab="by-theme">by theme</a>
+      </div>
+      <div id="highlights-content">
+        <div class="empty-state">
+          <p>no highlights yet.</p>
+          <p style="color: var(--text-dim);">open an article and select text to highlight</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Highlight save bar (fixed bottom) -->
+  <div class="highlight-bar" id="highlight-bar" hidden>
+    <span class="highlight-bar-preview" id="highlight-preview"></span>
+    <button class="btn btn--primary" id="btn-save-highlight">save</button>
   </div>
 
   <!-- Toast notification -->

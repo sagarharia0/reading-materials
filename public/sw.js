@@ -1,6 +1,6 @@
 /* Service worker for reading-materials PWA */
 
-var CACHE_NAME = 'reading-v1';
+var CACHE_NAME = 'reading-v5';
 var STATIC_ASSETS = [
   '/',
   '/index.html',

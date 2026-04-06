@@ -626,6 +626,169 @@ body {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
+/* -- Highlight Bar (fixed bottom) -- */
+.highlight-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  border-top: 2px solid var(--accent);
+  padding: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  z-index: 90;
+  min-height: 56px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.highlight-bar-preview {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.highlight-bar-preview::before {
+  content: '"';
+  color: var(--accent);
+}
+
+.highlight-bar-preview::after {
+  content: '"';
+  color: var(--accent);
+}
+
+/* -- Highlights in article text -- */
+[data-highlightable] mark {
+  background: rgba(218, 119, 86, 0.25);
+  color: var(--text);
+  border-radius: 1px;
+  padding: 0 1px;
+}
+
+/* -- Highlightable content sections -- */
+[data-highlightable] {
+  cursor: text;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* -- Full text expandable section -- */
+.fulltext-toggle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: var(--font-mono);
+  padding: var(--space-sm) 0;
+  display: block;
+  margin-top: var(--space-md);
+}
+
+.fulltext-toggle:hover {
+  color: var(--accent);
+}
+
+.fulltext-toggle::before {
+  content: '▸ ';
+}
+
+.fulltext-toggle.open::before {
+  content: '▾ ';
+}
+
+.fulltext-body {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  margin-top: var(--space-md);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* -- Highlights View -- */
+.highlight-tabs {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.highlight-tab {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.highlight-tab:hover,
+.highlight-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.highlight-group {
+  margin-bottom: var(--space-xl);
+}
+
+.highlight-group-title {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: var(--space-md);
+  cursor: pointer;
+}
+
+.highlight-group-title:hover {
+  color: var(--accent);
+}
+
+.highlight-entry {
+  position: relative;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+  margin-left: var(--space-sm);
+  border-left: 2px solid var(--accent);
+  background: var(--surface-alt);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.highlight-entry-text {
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.highlight-entry-context {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  margin-top: var(--space-xs);
+  line-height: 1.4;
+}
+
+.highlight-entry-delete {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-sm);
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.highlight-entry-delete:hover {
+  color: var(--red);
+}
+
 /* -- Responsive -- */
 @media (max-width: 600px) {
   :root {

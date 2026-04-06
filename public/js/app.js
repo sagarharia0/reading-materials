@@ -97,6 +97,7 @@
 
     if (name === 'digest') loadDigest();
     if (name === 'library') loadLibrary();
+    if (name === 'highlights') loadHighlights();
   }
 
   navLinks.forEach(function (a) {
@@ -316,14 +317,33 @@
 
         document.getElementById('item-summary').innerHTML =
           '<div class="section-header">summary</div>' +
-          '<div class="card-summary">' + escapeHtml(d.summary || 'No summary yet.') + '</div>';
+          '<div class="card-summary" data-highlightable="summary">' +
+          escapeHtml(d.summary || 'No summary yet.') + '</div>';
 
         if (d.deepDive) {
           document.getElementById('item-deep-dive').innerHTML =
             '<div class="section-header">deep-dive</div>' +
-            '<div class="deep-dive-content">' + escapeHtml(d.deepDive) + '</div>';
+            '<div class="deep-dive-content" data-highlightable="deepDive">' +
+            escapeHtml(d.deepDive) + '</div>';
         } else {
           document.getElementById('item-deep-dive').innerHTML = '';
+        }
+
+        // Full text (expandable)
+        var ftEl = document.getElementById('item-fulltext');
+        if (d.fullText) {
+          ftEl.innerHTML =
+            '<button class="fulltext-toggle" id="fulltext-toggle">full text</button>' +
+            '<div class="fulltext-body" data-highlightable="fullText" hidden>' +
+            escapeHtml(d.fullText) + '</div>';
+          document.getElementById('fulltext-toggle').addEventListener('click', function () {
+            var body = this.nextElementSibling;
+            var isOpen = !body.hidden;
+            body.hidden = isOpen;
+            this.classList.toggle('open', !isOpen);
+          });
+        } else {
+          ftEl.innerHTML = '';
         }
 
         document.getElementById('item-notes').value = d.notes || '';
@@ -332,6 +352,9 @@
         document.getElementById('btn-open-source').onclick = function () {
           if (d.sourceUrl) window.open(d.sourceUrl, '_blank');
         };
+
+        // Load and render saved highlights for this item
+        loadHighlightsForItem(id, d.title || 'Untitled', d.sourceType || 'article');
       })
       .catch(function (err) {
         console.error('Item load error:', err);
@@ -444,11 +467,365 @@
   });
 
 
+  // ---- Highlighting ----
+
+  var highlightBar = document.getElementById('highlight-bar');
+  var highlightPreview = document.getElementById('highlight-preview');
+  var btnSaveHighlight = document.getElementById('btn-save-highlight');
+  var currentItemTitle = '';
+  var currentItemSourceType = '';
+  var selectionTimer = null;
+
+  function getHighlightZone() {
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return null;
+
+    // Check anchor node
+    var node = sel.anchorNode;
+    var zone = null;
+    if (node) {
+      var el = node.nodeType === 3 ? node.parentElement : node;
+      if (el) zone = el.closest('[data-highlightable]');
+    }
+    // Also check focus node
+    if (!zone && sel.focusNode) {
+      var el2 = sel.focusNode.nodeType === 3
+        ? sel.focusNode.parentElement : sel.focusNode;
+      if (el2) zone = el2.closest('[data-highlightable]');
+    }
+    return zone;
+  }
+
+  // Store the last valid selection so we don't lose it
+  // when the user taps the save button (which clears selection).
+  var pendingHighlight = null;
+
+  // Guard: don't update selection state while saving
+  var isSaving = false;
+
+  function updateSelectionState() {
+    if (isSaving) return;
+
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || currentView !== 'item') {
+      highlightBar.hidden = true;
+      return;
+    }
+
+    var text = sel.toString().trim();
+    if (text.length < 3) {
+      highlightBar.hidden = true;
+      return;
+    }
+
+    var zone = getHighlightZone();
+    if (!zone) {
+      highlightBar.hidden = true;
+      return;
+    }
+
+    // Valid selection found — capture everything now
+    var section = zone.getAttribute('data-highlightable');
+    var range = sel.getRangeAt(0).cloneRange();
+
+    // Get surrounding context
+    var context = '';
+    var anchor = sel.anchorNode;
+    var parentP = anchor && anchor.parentElement
+      ? anchor.parentElement.closest('p') : null;
+    if (parentP) {
+      context = parentP.textContent;
+    } else {
+      var zoneText = zone.textContent;
+      var idx = zoneText.indexOf(text);
+      if (idx !== -1) {
+        var start = Math.max(0, idx - 100);
+        var end = Math.min(
+          zoneText.length, idx + text.length + 100
+        );
+        context = zoneText.substring(start, end);
+      } else {
+        context = text;
+      }
+    }
+
+    pendingHighlight = {
+      text: text,
+      section: section,
+      context: context,
+      range: range
+    };
+
+    highlightPreview.textContent = text.length > 60
+      ? text.substring(0, 60) + '...'
+      : text;
+    highlightBar.hidden = false;
+  }
+
+  // Multiple event listeners for Android compatibility.
+  document.addEventListener('selectionchange', function () {
+    clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(updateSelectionState, 150);
+  });
+
+  document.addEventListener('mouseup', function (e) {
+    // Ignore clicks on the highlight bar itself
+    if (highlightBar.contains(e.target)) return;
+    setTimeout(updateSelectionState, 200);
+  });
+
+  document.addEventListener('touchend', function (e) {
+    if (highlightBar.contains(e.target)) return;
+    setTimeout(updateSelectionState, 300);
+  });
+
+  // Prevent the save button from clearing the selection
+  // by stopping mousedown propagation.
+  btnSaveHighlight.addEventListener('mousedown', function (e) {
+    e.preventDefault();
+  });
+
+  // Save highlight — uses the stored pendingHighlight
+  // since tapping this button clears the browser selection.
+  btnSaveHighlight.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    isSaving = true;
+
+    if (!pendingHighlight || !db || !currentItemId) {
+      showToast('no text selected', 'error');
+      return;
+    }
+
+    var h = pendingHighlight;
+
+    // Write to Firestore
+    db.collection('highlights').add({
+      contentId: currentItemId,
+      contentTitle: currentItemTitle,
+      sourceType: currentItemSourceType,
+      highlightedText: h.text,
+      surroundingContext: h.context,
+      section: h.section,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function () {
+      // Visually mark the text in the article
+      try {
+        var mark = document.createElement('mark');
+        h.range.surroundContents(mark);
+      } catch (e2) {
+        // Fall back to string-matching approach
+        applyHighlightMark(h.text, h.section);
+      }
+      // Clear state
+      var sel = window.getSelection();
+      if (sel) sel.removeAllRanges();
+      pendingHighlight = null;
+      highlightBar.hidden = true;
+      isSaving = false;
+      showToast('highlight saved', 'success');
+    }).catch(function (err) {
+      console.error('Save highlight error:', err);
+      showToast('error saving highlight', 'error');
+      isSaving = false;
+    });
+  });
+
+  // Load and re-render saved highlights for an item
+  function loadHighlightsForItem(contentId, title, sourceType) {
+    currentItemTitle = title;
+    currentItemSourceType = sourceType;
+
+    if (!db) return;
+
+    db.collection('highlights')
+      .where('contentId', '==', contentId)
+      .get()
+      .then(function (snapshot) {
+        if (snapshot.empty) return;
+
+        snapshot.forEach(function (doc) {
+          var h = doc.data();
+          applyHighlightMark(h.highlightedText, h.section);
+        });
+      })
+      .catch(function (err) {
+        console.error('Load highlights error:', err);
+      });
+  }
+
+  // Apply a <mark> to matching text in a highlightable zone
+  function applyHighlightMark(text, section) {
+    var zone = document.querySelector(
+      '[data-highlightable="' + section + '"]'
+    );
+    if (!zone) return;
+
+    var walker = document.createTreeWalker(
+      zone, NodeFilter.SHOW_TEXT, null, false
+    );
+    var node;
+    while ((node = walker.nextNode())) {
+      var idx = node.textContent.indexOf(text);
+      if (idx === -1) continue;
+
+      var range = document.createRange();
+      range.setStart(node, idx);
+      range.setEnd(node, idx + text.length);
+      var mark = document.createElement('mark');
+      try {
+        range.surroundContents(mark);
+      } catch (e) {
+        // Skip if range crosses element boundaries
+      }
+      return; // Only mark first occurrence
+    }
+  }
+
+  // ---- Render: Highlights View ----
+
+  var highlightsContent = document.getElementById('highlights-content');
+
+  // Tab switching
+  var highlightTabs = document.querySelectorAll('.highlight-tab');
+  highlightTabs.forEach(function (tab) {
+    tab.addEventListener('click', function (e) {
+      e.preventDefault();
+      highlightTabs.forEach(function (t) {
+        t.classList.remove('active');
+      });
+      tab.classList.add('active');
+      loadHighlights();
+    });
+  });
+
+  function loadHighlights() {
+    if (!db) {
+      highlightsContent.innerHTML =
+        '<div class="empty-state"><p>connecting...</p></div>';
+      return;
+    }
+
+    db.collection('highlights')
+      .orderBy('createdAt', 'desc')
+      .limit(200)
+      .get()
+      .then(function (snapshot) {
+        if (snapshot.empty) {
+          highlightsContent.innerHTML =
+            '<div class="empty-state">' +
+            '<p>no highlights yet.</p>' +
+            '<p style="color: var(--text-dim);">' +
+            'open an article and select text to highlight</p>' +
+            '</div>';
+          return;
+        }
+
+        var activeTab = document.querySelector('.highlight-tab.active');
+        var mode = activeTab ? activeTab.dataset.tab : 'by-article';
+
+        var highlights = [];
+        snapshot.forEach(function (doc) {
+          var d = doc.data();
+          d._id = doc.id;
+          highlights.push(d);
+        });
+
+        if (mode === 'by-article') {
+          renderHighlightsByArticle(highlights);
+        } else {
+          renderHighlightsByArticle(highlights);
+          // Theme view will use learning profile later
+        }
+      })
+      .catch(function (err) {
+        console.error('Highlights load error:', err);
+        highlightsContent.innerHTML =
+          '<div class="empty-state">' +
+          '<p style="color: var(--red);">error loading highlights</p>' +
+          '</div>';
+      });
+  }
+
+  function renderHighlightsByArticle(highlights) {
+    // Group by contentId
+    var groups = {};
+    highlights.forEach(function (h) {
+      var key = h.contentId || 'unknown';
+      if (!groups[key]) {
+        groups[key] = {
+          title: h.contentTitle || 'Untitled',
+          contentId: h.contentId,
+          items: []
+        };
+      }
+      groups[key].items.push(h);
+    });
+
+    var html = '';
+    Object.keys(groups).forEach(function (key) {
+      var group = groups[key];
+      html += '<div class="highlight-group">';
+      html += '<div class="highlight-group-title" ' +
+        'data-action="open" data-id="' +
+        escapeHtml(group.contentId) + '">' +
+        escapeHtml(group.title) + '</div>';
+
+      group.items.forEach(function (h) {
+        html += '<div class="highlight-entry">';
+        html += '<div class="highlight-entry-text">' +
+          escapeHtml(h.highlightedText) + '</div>';
+        if (h.surroundingContext &&
+            h.surroundingContext !== h.highlightedText) {
+          html += '<div class="highlight-entry-context">...' +
+            escapeHtml(h.surroundingContext.substring(0, 150)) +
+            '...</div>';
+        }
+        html += '<button class="highlight-entry-delete" ' +
+          'data-highlight-id="' + h._id + '">x</button>';
+        html += '</div>';
+      });
+
+      html += '</div>';
+    });
+
+    highlightsContent.innerHTML = html;
+    attachCardListeners(highlightsContent);
+    attachHighlightDeleteListeners();
+  }
+
+  function attachHighlightDeleteListeners() {
+    highlightsContent.querySelectorAll(
+      '.highlight-entry-delete'
+    ).forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var id = btn.dataset.highlightId;
+        if (!db || !id) return;
+        db.collection('highlights').doc(id).delete()
+          .then(function () {
+            showToast('highlight removed', 'success');
+            loadHighlights();
+          })
+          .catch(function () {
+            showToast('error removing highlight', 'error');
+          });
+      });
+    });
+  }
+
+  // Hide highlight bar when leaving item view
+  var origSwitchView = switchView;
+  switchView = function (name) {
+    highlightBar.hidden = true;
+    origSwitchView(name);
+  };
+
   // ---- Hash Routing ----
 
   function handleHash() {
     var hash = window.location.hash.replace('#', '') || 'digest';
-    if (['digest', 'library', 'add'].indexOf(hash) !== -1) {
+    if (['digest', 'library', 'add', 'highlights'].indexOf(hash) !== -1) {
       switchView(hash);
     }
   }
