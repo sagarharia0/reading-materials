@@ -7,9 +7,14 @@
 
   // ---- State ----
   let db = null;
-  let functions = null;
   let currentView = 'digest';
   let currentItemId = null;
+
+  // API base — works for both emulator and production.
+  // In emulator mode, Firebase Hosting runs on :5000 and
+  // proxies /api/* to the Functions emulator via the
+  // hosting rewrite in firebase.json.
+  var apiBase = '';
 
   // ---- DOM refs ----
   const views = document.querySelectorAll('.view');
@@ -310,16 +315,24 @@
 
   // Go deeper button
   document.getElementById('btn-go-deeper').addEventListener('click', function () {
-    if (!functions || !currentItemId) return;
+    if (!currentItemId) return;
     this.textContent = 'processing...';
     this.disabled = true;
     var btn = this;
 
-    var goDeeper = functions.httpsCallable('goDeeper');
-    goDeeper({ documentId: currentItemId })
-      .then(function () {
-        showToast('deep dive generated', 'success');
-        openItem(currentItemId); // reload
+    fetch(apiBase + '/api/goDeeper', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId: currentItemId })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.error) {
+          showToast('error: ' + data.error, 'error');
+        } else {
+          showToast('deep dive generated', 'success');
+          openItem(currentItemId);
+        }
       })
       .catch(function (err) {
         console.error('Go deeper error:', err);
@@ -371,49 +384,39 @@
 
     submitStatus.innerHTML = '<span class="loading">processing</span>';
 
-    if (!functions) {
-      // Fallback: write directly to Firestore as queued
-      if (db) {
-        db.collection('content').add({
-          sourceUrl: url,
-          title: url,
-          status: 'queued',
-          dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
-          sourceType: detectSourceType(url)
-        })
-        .then(function () {
-          submitStatus.innerHTML = '<span style="color: var(--green);">queued for processing</span>';
-          urlInput.value = '';
-          setTimeout(function () { submitStatus.innerHTML = ''; }, 3000);
-        })
-        .catch(function (err) {
-          submitStatus.innerHTML = '<span style="color: var(--red);">error: ' + escapeHtml(err.message) + '</span>';
-        });
-      }
-      return;
-    }
-
-    var processUrl = functions.httpsCallable('processUrl');
-    processUrl({ url: url })
-      .then(function () {
-        submitStatus.innerHTML = '<span style="color: var(--green);">processed successfully</span>';
+    fetch(apiBase + '/api/processUrl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.status === 'processed') {
+          submitStatus.innerHTML =
+            '<span style="color: var(--green);">processed: ' +
+            escapeHtml(data.title || '') + '</span>' +
+            '<div style="margin-top: var(--space-sm); font-size: 0.85rem; color: var(--text-muted);">' +
+            escapeHtml(data.summary || '') + '</div>' +
+            (data.tags ? '<div style="margin-top: var(--space-sm);">' + renderTags(data.tags) + '</div>' : '');
+        } else if (data.status === 'failed') {
+          submitStatus.innerHTML =
+            '<span style="color: var(--yellow);">queued but extraction failed: ' +
+            escapeHtml(data.error || 'unknown error') + '</span>';
+        } else {
+          submitStatus.innerHTML =
+            '<span style="color: var(--red);">error: ' +
+            escapeHtml(data.error || 'unknown error') + '</span>';
+        }
         urlInput.value = '';
-        setTimeout(function () { submitStatus.innerHTML = ''; }, 3000);
+        setTimeout(function () { submitStatus.innerHTML = ''; }, 8000);
       })
       .catch(function (err) {
-        submitStatus.innerHTML = '<span style="color: var(--red);">error: ' + escapeHtml(err.message) + '</span>';
+        submitStatus.innerHTML =
+          '<span style="color: var(--red);">error: ' +
+          escapeHtml(err.message) + '</span>';
       });
   });
 
-  // Basic source type detection from URL
-  function detectSourceType(url) {
-    if (/youtube\.com|youtu\.be/i.test(url)) return 'youtube';
-    if (/substack\.com/i.test(url)) return 'substack';
-    if (/twitter\.com|x\.com/i.test(url)) return 'twitter';
-    if (/github\.com/i.test(url)) return 'github';
-    if (/\.pdf(\?|$)/i.test(url)) return 'pdf';
-    return 'article';
-  }
 
   // ---- Hash Routing ----
 
@@ -430,9 +433,8 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     try {
-      var app = firebase.app();
+      firebase.app();
       db = firebase.firestore();
-      functions = firebase.functions();
       handleHash();
     } catch (e) {
       console.error('Firebase init error:', e);

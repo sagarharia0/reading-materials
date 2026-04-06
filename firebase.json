@@ -28,6 +28,14 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/processUrl",
+        "function": {
+          "functionId": "processUrl"
+        }
+      }
     ]
   }
 }

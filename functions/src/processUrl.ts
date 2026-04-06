@@ -5,12 +5,44 @@ import {Response} from "express";
 import {Timestamp} from "firebase-admin/firestore";
 import {resolveSourceType} from "./resolver.js";
 import {extractArticle} from "./processors/article.js";
+import {extractYoutube} from "./processors/youtube.js";
+import {extractGithub} from "./processors/github.js";
+import {extractPdf} from "./processors/pdf.js";
+import {extractTwitter} from "./processors/twitter.js";
+import {extractSubstack} from "./processors/substack.js";
 import {summariseContent} from "./ai/summarise.js";
-import {ContentDocument} from "./types.js";
+import {ContentDocument, ExtractedContent, SourceType} from "./types.js";
 
-const SUPPORTED_TYPES = new Set([
-  "article", "substack", "other",
-]);
+/**
+ * Routes to the correct processor for a given source type.
+ * @param {SourceType} sourceType - The detected source type.
+ * @param {string} url - The URL to process.
+ * @return {Promise<ExtractedContent>} Extracted content.
+ */
+async function extractContent(
+  sourceType: SourceType,
+  url: string
+): Promise<ExtractedContent> {
+  switch (sourceType) {
+  case "youtube":
+    return extractYoutube(url);
+  case "substack":
+    return extractSubstack(url);
+  case "github":
+    return extractGithub(url);
+  case "pdf":
+    return extractPdf(url);
+  case "twitter":
+    return extractTwitter(url);
+  case "podcast":
+    throw new Error(
+      "Podcast processing is not yet supported. " +
+      "Audio transcription requires a separate service."
+    );
+  default:
+    return extractArticle(url);
+  }
+}
 
 /**
  * Handles the processUrl HTTP request.
@@ -38,9 +70,9 @@ export async function handleProcessUrl(
 
   const sourceType = resolveSourceType(url);
 
-  if (!SUPPORTED_TYPES.has(sourceType)) {
+  if (sourceType === "podcast") {
     res.status(400).json({
-      error: `Source type "${sourceType}" is not yet supported`,
+      error: "Podcast processing is not yet supported",
     });
     return;
   }
@@ -48,7 +80,7 @@ export async function handleProcessUrl(
   const db = admin.firestore();
   const now = Timestamp.now();
 
-  // Write a queued document immediately so the URL is never lost.
+  // Write a queued document so the URL is never lost.
   const queuedDoc: ContentDocument = {
     title: "",
     sourceUrl: url,
@@ -64,11 +96,14 @@ export async function handleProcessUrl(
     deepDive: null,
   };
 
-  const docRef = await db.collection("content").add(queuedDoc);
-  logger.info(`Queued document ${docRef.id} for ${url}`);
+  const docRef =
+    await db.collection("content").add(queuedDoc);
+  logger.info(
+    `Queued document ${docRef.id} for ${url}`
+  );
 
   try {
-    const extracted = await extractArticle(url);
+    const extracted = await extractContent(sourceType, url);
 
     const enrichment = await summariseContent(
       extracted.title,
@@ -102,7 +137,9 @@ export async function handleProcessUrl(
   } catch (err) {
     const message = err instanceof Error ?
       err.message : String(err);
-    logger.error(`Failed to process ${url}: ${message}`);
+    logger.error(
+      `Failed to process ${url}: ${message}`
+    );
 
     await docRef.update({
       status: "failed",

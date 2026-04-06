@@ -42,7 +42,10 @@ export function resolveSourceType(url: string): SourceType {
     return "github";
   }
 
-  if (lower.endsWith(".pdf")) {
+  if (
+    lower.endsWith(".pdf") ||
+    lower.includes("arxiv.org/pdf/")
+  ) {
     return "pdf";
   }
 
