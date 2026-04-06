@@ -42,3 +42,24 @@ export interface ContentDocument {
   deepDive: string | null;
   failureReason?: string;
 }
+
+/** A daily digest document. */
+export interface DigestDocument {
+  date: Timestamp;
+  htmlContent: string;
+  textContent: string;
+  itemIds: string[];
+  archivedItemIds: string[];
+  nudgeItemId: string | null;
+}
+
+/** Summary of a content item for digest generation. */
+export interface DigestItem {
+  id: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  sourceType: SourceType;
+  sourceUrl: string;
+  deeperScore: number;
+}

@@ -149,6 +149,32 @@
       return;
     }
 
+    // Try to load the latest generated digest first.
+    db.collection('digests')
+      .orderBy('date', 'desc')
+      .limit(1)
+      .get()
+      .then(function (snapshot) {
+        if (!snapshot.empty) {
+          var digest = snapshot.docs[0].data();
+          var dateStr = digest.date && digest.date.toDate ? formatDate(digest.date.toDate()) : '';
+          digestDate.textContent = dateStr;
+          digestContent.innerHTML = digest.htmlContent || '<div class="empty-state"><p>digest is empty</p></div>';
+          attachCardListeners(digestContent);
+          return;
+        }
+
+        // No generated digest yet — fall back to showing today's items.
+        loadTodayItems();
+      })
+      .catch(function (err) {
+        console.error('Digest load error:', err);
+        // Fall back to today's items on error.
+        loadTodayItems();
+      });
+  }
+
+  function loadTodayItems() {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -161,13 +187,13 @@
           digestContent.innerHTML =
             '<div class="empty-state">' +
               '<p>no new items today.</p>' +
-              '<p style="color: var(--text-dim);">add a url or wait for scheduled ingestion</p>' +
+              '<p style="color: var(--text-dim);">add a url or wait for the daily digest</p>' +
             '</div>';
           return;
         }
 
         var header = '<div style="color: var(--text-muted); margin-bottom: var(--space-md); font-size: 0.85rem;">' +
-          '> ' + snapshot.size + ' new item' + (snapshot.size === 1 ? '' : 's') + ' processed</div>' +
+          '> ' + snapshot.size + ' new item' + (snapshot.size === 1 ? '' : 's') + ' — digest not yet generated</div>' +
           '<hr class="divider-heavy">';
 
         var cards = '';
@@ -179,9 +205,9 @@
         attachCardListeners(digestContent);
       })
       .catch(function (err) {
-        console.error('Digest load error:', err);
+        console.error('Today items load error:', err);
         digestContent.innerHTML =
-          '<div class="empty-state"><p style="color: var(--red);">error loading digest</p></div>';
+          '<div class="empty-state"><p style="color: var(--red);">error loading items</p></div>';
       });
   }
 

@@ -550,6 +550,82 @@ body {
   background: var(--border-light);
 }
 
+/* -- Digest -- */
+.digest-intro {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin-bottom: var(--space-lg);
+}
+
+.digest-section {
+  margin-bottom: var(--space-xl);
+}
+
+.digest-theme {
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: var(--space-md);
+}
+
+.digest-theme::before {
+  content: '## ';
+  color: var(--text-dim);
+}
+
+.digest-item {
+  margin-bottom: var(--space-lg);
+}
+
+.digest-headline {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: var(--space-sm);
+}
+
+.digest-link {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+  cursor: pointer;
+}
+
+.digest-link:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.digest-source-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.75rem;
+  margin-left: var(--space-sm);
+  border-bottom: 1px solid transparent;
+}
+
+.digest-source-link:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.digest-source-link::before {
+  content: '↗ ';
+}
+
+.digest-quote {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  padding: var(--space-sm) var(--space-md);
+  margin-left: var(--space-sm);
+  border-left: 2px solid var(--accent);
+  background: var(--surface-alt);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
 /* -- Responsive -- */
 @media (max-width: 600px) {
   :root {

@@ -35,6 +35,12 @@
         "function": {
           "functionId": "processUrl"
         }
+      },
+      {
+        "source": "/api/generateDigest",
+        "function": {
+          "functionId": "generateDigest"
+        }
       }
     ]
   }

@@ -7,5 +7,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    // Digests collection: anyone can read, only backend can write
+    match /digests/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

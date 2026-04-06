@@ -83,7 +83,13 @@ export async function summariseContent(
     message.content[0].text :
     "";
 
-  const parsed = JSON.parse(responseText);
+  // Strip markdown fencing if present.
+  const cleaned = responseText
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/, "")
+    .trim();
+
+  const parsed = JSON.parse(cleaned);
 
   return {
     summary: String(parsed.summary || ""),
