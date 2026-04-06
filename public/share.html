@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>reading-materials — processing</title>
+  <link rel="stylesheet" href="css/terminal.css">
+</head>
+<body>
+  <div class="container">
+    <header class="shell-header">
+      <div class="shell-title">reading-materials</div>
+    </header>
+
+    <div class="section-header">processing shared url</div>
+    <div id="status">
+      <span class="loading">extracting and summarising</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+
+      /* Android share sends url, text, or title.
+         The URL might be in any of these fields. */
+      var shared = params.get('url') ||
+        params.get('text') ||
+        params.get('title') || '';
+
+      /* Extract a URL from the shared text if needed.
+         Sometimes Android shares "Title - https://..." */
+      var urlMatch = shared.match(/https?:\/\/[^\s]+/);
+      var url = urlMatch ? urlMatch[0] : shared.trim();
+
+      var status = document.getElementById('status');
+
+      if (!url || !url.startsWith('http')) {
+        status.innerHTML =
+          '<span style="color: var(--red);">' +
+          'no valid url found in shared content</span>' +
+          '<p style="color: var(--text-dim); margin-top: 16px;">' +
+          'shared text: ' + (shared || '(empty)') + '</p>';
+        return;
+      }
+
+      status.innerHTML =
+        '<p style="color: var(--text-muted); margin-bottom: 16px;">' +
+        url + '</p>' +
+        '<span class="loading">extracting and summarising</span>';
+
+      fetch('/api/processUrl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.status === 'processed') {
+            status.innerHTML =
+              '<div style="color: var(--green); margin-bottom: 16px;">' +
+              '&#10003; processed</div>' +
+              '<div class="card">' +
+              '<div class="card-title">' +
+              (data.title || 'Untitled') + '</div>' +
+              '<div class="card-summary">' +
+              (data.summary || '') + '</div>' +
+              '</div>' +
+              '<a href="/" style="color: var(--accent); ' +
+              'display: inline-block; margin-top: 16px;">' +
+              '&larr; open digest</a>';
+          } else {
+            status.innerHTML =
+              '<div style="color: var(--yellow);">' +
+              'queued but processing failed: ' +
+              (data.error || 'unknown') + '</div>' +
+              '<a href="/" style="color: var(--accent); ' +
+              'display: inline-block; margin-top: 16px;">' +
+              '&larr; open digest</a>';
+          }
+        })
+        .catch(function (err) {
+          status.innerHTML =
+            '<span style="color: var(--red);">error: ' +
+            err.message + '</span>';
+        });
+    })();
+  </script>
+</body>
+</html>
