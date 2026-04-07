@@ -14,7 +14,7 @@ import {extractPodcast} from "./processors/podcast.js";
 import {summariseContent} from "./ai/summarise.js";
 import {
   ContentDocument, ExtractedContent,
-  ExtractionMeta, SourceType,
+  SourceType,
 } from "./types.js";
 
 /**
@@ -135,10 +135,8 @@ export async function handleProcessUrl(
       );
     }
 
-    const extractionMeta: ExtractionMeta | undefined =
-      extracted.extractionMeta;
-
-    const update: Partial<ContentDocument> = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const update: Record<string, any> = {
       title: extracted.title,
       fullText: extracted.fullText,
       datePublished: extracted.datePublished ?
@@ -151,14 +149,20 @@ export async function handleProcessUrl(
       tags: enrichment.tags,
       deeperScore: enrichment.deeperScore,
       status: "processed",
-      extractionMeta,
     };
 
+    // Only include extractionMeta if present —
+    // Firestore rejects undefined values.
+    if (extracted.extractionMeta) {
+      update.extractionMeta = extracted.extractionMeta;
+    }
+
     await docRef.update(update);
+    const meta = extracted.extractionMeta;
     logger.info(
       `Processed document ${docRef.id}` +
-      (extractionMeta ?
-        ` (confidence: ${extractionMeta.confidence})` : "")
+      (meta ?
+        ` (confidence: ${meta.confidence})` : "")
     );
 
     res.status(200).json({
@@ -168,7 +172,7 @@ export async function handleProcessUrl(
       summary: update.summary,
       tags: enrichment.tags,
       deeperScore: enrichment.deeperScore,
-      extractionConfidence: extractionMeta?.confidence,
+      extractionConfidence: meta?.confidence,
     });
   } catch (err) {
     const message = err instanceof Error ?
