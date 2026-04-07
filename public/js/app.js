@@ -84,6 +84,45 @@
     return div.innerHTML;
   }
 
+  function extractYouTubeId(url) {
+    var m = url.match(/youtube\.com\/watch\?v=([^&]+)/) ||
+            url.match(/youtu\.be\/([^?]+)/) ||
+            url.match(/youtube\.com\/embed\/([^?]+)/) ||
+            url.match(/youtube\.com\/shorts\/([^?]+)/);
+    return m ? m[1] : null;
+  }
+
+  function renderConfidenceBanner(d) {
+    var meta = d.extractionMeta;
+    if (!meta) return '';
+
+    var color, icon;
+    if (meta.confidence === 'high') {
+      color = 'var(--green)';
+      icon = '*';
+    } else if (meta.confidence === 'partial') {
+      color = 'var(--yellow)';
+      icon = '!';
+    } else {
+      color = 'var(--red)';
+      icon = 'x';
+    }
+
+    var html = '<div style="margin-top: var(--space-sm); padding: var(--space-sm) var(--space-md); ' +
+      'border-left: 2px solid ' + color + '; background: var(--surface-alt); ' +
+      'font-size: 0.8rem; border-radius: 0 var(--radius) var(--radius) 0;">' +
+      '<span style="color: ' + color + ';">[' + icon + '] extraction: ' + meta.confidence + '</span>' +
+      ' <span style="color: var(--text-dim);">' + escapeHtml(meta.confidenceReason) + '</span>';
+
+    if (meta.confidence === 'none' && d.sourceType === 'youtube') {
+      html += '<div style="margin-top: var(--space-xs); color: var(--text-muted);">' +
+        'watch the video below and use the notes field to capture key points</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
   // ---- View Switching ----
 
   function switchView(name) {
@@ -142,38 +181,111 @@
 
   // ---- Render: Digest ----
 
+  var digestNav = document.getElementById('digest-nav');
+  var digestPrev = document.getElementById('digest-prev');
+  var digestNext = document.getElementById('digest-next');
+  var digestListBtn = document.getElementById('digest-list-btn');
+  var digestListEl = document.getElementById('digest-list');
+  var allDigests = []; // cached list of {id, date}
+  var currentDigestIndex = 0;
+
   function loadDigest() {
     digestDate.textContent = formatDate(new Date());
+    digestListEl.hidden = true;
 
     if (!db) {
       digestContent.innerHTML = '<div class="empty-state"><p>connecting to firebase...</p></div>';
       return;
     }
 
-    // Try to load the latest generated digest first.
+    // Load all digests to enable navigation.
     db.collection('digests')
       .orderBy('date', 'desc')
-      .limit(1)
       .get()
       .then(function (snapshot) {
-        if (!snapshot.empty) {
-          var digest = snapshot.docs[0].data();
-          var dateStr = digest.date && digest.date.toDate ? formatDate(digest.date.toDate()) : '';
-          digestDate.textContent = dateStr;
-          digestContent.innerHTML = digest.htmlContent || '<div class="empty-state"><p>digest is empty</p></div>';
-          attachCardListeners(digestContent);
+        if (snapshot.empty) {
+          digestNav.hidden = true;
+          loadTodayItems();
           return;
         }
 
-        // No generated digest yet — fall back to showing today's items.
-        loadTodayItems();
+        allDigests = [];
+        snapshot.forEach(function (doc) {
+          allDigests.push({ id: doc.id, data: doc.data() });
+        });
+
+        digestNav.hidden = allDigests.length <= 1;
+        currentDigestIndex = 0;
+        renderDigestAtIndex(0);
       })
       .catch(function (err) {
         console.error('Digest load error:', err);
-        // Fall back to today's items on error.
         loadTodayItems();
       });
   }
+
+  function renderDigestAtIndex(index) {
+    if (index < 0 || index >= allDigests.length) return;
+    currentDigestIndex = index;
+
+    var entry = allDigests[index];
+    var digest = entry.data;
+    var dateStr = digest.date && digest.date.toDate ?
+      formatDate(digest.date.toDate()) : '';
+    digestDate.textContent = dateStr;
+    digestContent.innerHTML = digest.htmlContent ||
+      '<div class="empty-state"><p>digest is empty</p></div>';
+    attachCardListeners(digestContent);
+
+    // Update nav button states.
+    digestPrev.disabled = (index >= allDigests.length - 1);
+    digestNext.disabled = (index <= 0);
+    digestPrev.style.opacity = digestPrev.disabled ? '0.3' : '1';
+    digestNext.style.opacity = digestNext.disabled ? '0.3' : '1';
+  }
+
+  digestPrev.addEventListener('click', function () {
+    if (currentDigestIndex < allDigests.length - 1) {
+      digestListEl.hidden = true;
+      renderDigestAtIndex(currentDigestIndex + 1);
+    }
+  });
+
+  digestNext.addEventListener('click', function () {
+    if (currentDigestIndex > 0) {
+      digestListEl.hidden = true;
+      renderDigestAtIndex(currentDigestIndex - 1);
+    }
+  });
+
+  digestListBtn.addEventListener('click', function () {
+    if (!digestListEl.hidden) {
+      digestListEl.hidden = true;
+      return;
+    }
+
+    var html = '';
+    allDigests.forEach(function (entry, i) {
+      var d = entry.data;
+      var dateStr = d.date && d.date.toDate ?
+        formatDate(d.date.toDate()) : 'unknown';
+      var count = (d.itemIds ? d.itemIds.length : 0);
+      html += '<div class="digest-list-item" data-digest-index="' + i + '">' +
+        '<span class="digest-list-item-date">' + dateStr + '</span>' +
+        '<span class="digest-list-item-count">' + count + ' item' +
+        (count === 1 ? '' : 's') + '</span>' +
+        '</div>';
+    });
+    digestListEl.innerHTML = html;
+    digestListEl.hidden = false;
+
+    digestListEl.querySelectorAll('.digest-list-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        renderDigestAtIndex(parseInt(el.dataset.digestIndex, 10));
+        digestListEl.hidden = true;
+      });
+    });
+  });
 
   function loadTodayItems() {
     var today = new Date();
@@ -315,6 +427,40 @@
 
         document.getElementById('item-tags').innerHTML = renderTags(d.tags);
 
+        // Extraction confidence banner
+        var confEl = document.getElementById('item-confidence');
+        if (!confEl) {
+          confEl = document.createElement('div');
+          confEl.id = 'item-confidence';
+          document.getElementById('item-tags').after(confEl);
+        }
+        confEl.innerHTML = renderConfidenceBanner(d);
+
+        // Embedded YouTube player (for YouTube items)
+        var playerEl = document.getElementById('item-player');
+        if (!playerEl) {
+          playerEl = document.createElement('div');
+          playerEl.id = 'item-player';
+          confEl.after(playerEl);
+        }
+        if (d.sourceType === 'youtube' && d.sourceUrl) {
+          var vid = extractYouTubeId(d.sourceUrl);
+          if (vid) {
+            playerEl.innerHTML =
+              '<div style="margin: var(--space-md) 0;">' +
+              '<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius);">' +
+              '<iframe src="https://www.youtube.com/embed/' + escapeHtml(vid) + '" ' +
+              'style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" ' +
+              'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" ' +
+              'allowfullscreen></iframe>' +
+              '</div></div>';
+          } else {
+            playerEl.innerHTML = '';
+          }
+        } else {
+          playerEl.innerHTML = '';
+        }
+
         document.getElementById('item-summary').innerHTML =
           '<div class="section-header">summary</div>' +
           '<div class="card-summary" data-highlightable="summary">' +
@@ -361,37 +507,6 @@
         showToast('error loading item', 'error');
       });
   }
-
-  // Go deeper button
-  document.getElementById('btn-go-deeper').addEventListener('click', function () {
-    if (!currentItemId) return;
-    this.textContent = 'processing...';
-    this.disabled = true;
-    var btn = this;
-
-    fetch(apiBase + '/api/goDeeper', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documentId: currentItemId })
-    })
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (data.error) {
-          showToast('error: ' + data.error, 'error');
-        } else {
-          showToast('deep dive generated', 'success');
-          openItem(currentItemId);
-        }
-      })
-      .catch(function (err) {
-        console.error('Go deeper error:', err);
-        showToast('error: ' + err.message, 'error');
-      })
-      .finally(function () {
-        btn.textContent = 'go-deeper';
-        btn.disabled = false;
-      });
-  });
 
   // Save notes
   document.getElementById('btn-save-notes').addEventListener('click', function () {

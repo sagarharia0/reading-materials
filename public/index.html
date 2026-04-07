@@ -60,6 +60,12 @@
          ============================================ -->
     <section id="view-digest" class="view">
       <div class="section-header">digest --date <span id="digest-date"></span></div>
+      <div id="digest-nav" class="digest-nav" hidden>
+        <button class="btn" id="digest-prev">&lt; prev</button>
+        <button class="btn" id="digest-list-btn">all digests</button>
+        <button class="btn" id="digest-next">next &gt;</button>
+      </div>
+      <div id="digest-list" hidden></div>
       <div id="digest-content">
         <div class="empty-state">
           <p>no items yet.</p>
@@ -127,7 +133,6 @@
       <div id="item-fulltext"></div>
 
       <div id="item-actions" style="margin-top: var(--space-lg); display: flex; gap: var(--space-sm);">
-        <button class="btn btn--primary" id="btn-go-deeper">go-deeper</button>
         <button class="btn" id="btn-open-source">open source</button>
       </div>
 
