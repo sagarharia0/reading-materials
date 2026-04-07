@@ -195,6 +195,16 @@ body {
   color: var(--accent-hover);
 }
 
+.card-arrow {
+  color: var(--text-dim);
+  font-size: 0.8em;
+  transition: color 0.15s;
+}
+
+.card-title:hover .card-arrow {
+  color: var(--accent);
+}
+
 .card-meta {
   color: var(--text-muted);
   font-size: 0.8rem;

@@ -166,6 +166,7 @@
       '<div class="card-index">' + (index + 1) + '</div>' +
       '<div class="card-title" data-action="open" data-id="' + id + '">' +
         escapeHtml(d.title || 'Untitled') +
+        ' <span class="card-arrow">&#8599;</span>' +
       '</div>' +
       '<div class="card-meta">' +
         renderSourceBadge(d.sourceType || 'article') +
@@ -494,10 +495,25 @@
 
         document.getElementById('item-notes').value = d.notes || '';
 
-        // Open source link
-        document.getElementById('btn-open-source').onclick = function () {
-          if (d.sourceUrl) window.open(d.sourceUrl, '_blank');
-        };
+        // Open source link — adjust for email items.
+        var srcBtn = document.getElementById('btn-open-source');
+        var isEmail = d.sourceUrl &&
+          d.sourceUrl.startsWith('email://');
+        if (isEmail) {
+          srcBtn.textContent = 'via email';
+          srcBtn.disabled = true;
+          srcBtn.style.cursor = 'default';
+          srcBtn.onclick = null;
+        } else {
+          srcBtn.textContent = 'open source ↗';
+          srcBtn.disabled = false;
+          srcBtn.style.cursor = 'pointer';
+          srcBtn.onclick = function () {
+            if (d.sourceUrl) {
+              window.open(d.sourceUrl, '_blank');
+            }
+          };
+        }
 
         // Load and render saved highlights for this item
         loadHighlightsForItem(id, d.title || 'Untitled', d.sourceType || 'article');
