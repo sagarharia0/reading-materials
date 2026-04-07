@@ -14,13 +14,14 @@ The owner is a Head of Product who is building AI literacy and wants to stay cur
 ## Architecture
 
 ### Content Sources
-- YouTube videos → transcript extraction via yt-dlp
-- Substack newsletters → article extraction via trafilatura
-- Podcasts → RSS feed monitoring, audio transcription via Whisper
-- Web articles/blogs → article extraction via trafilatura/readability
-- Twitter/X threads → manual paste or Nitter extraction
-- GitHub repos → README/content extraction
-- PDFs → text extraction + OCR fallback
+- YouTube videos → transcript via InnerTube API + web page fallback
+- Substack newsletters → @extractus/article-extractor (free posts) + Gmail forwarding (paid posts)
+- Podcasts → audio URL detection + Deepgram Nova-3 transcription
+- Web articles/blogs → @extractus/article-extractor
+- Twitter/X → oEmbed API (limited reliability)
+- GitHub repos → README + metadata via GitHub API
+- PDFs → pdf-parse v1.1.1
+- Email newsletters → Gmail Apps Script forwards to processUrl
 
 ### URL Resolver
 Every URL submitted goes through a resolver that:
@@ -113,14 +114,27 @@ Every URL submitted goes through a resolver that:
 If this conversation has involved significant progress (multiple features built, major decisions made, or tricky problems solved), proactively suggest running `/save-session` before wrapping up. Session logs live in `sessions/` and preserve the reasoning and context that code alone doesn't capture. Don't wait to be asked — nudge the user when it would be valuable.
 
 ## Current Status
-[Update this as you build]
+Live at: https://reading-materials-60e09.web.app
+
+### Done
 - [x] Firebase project initialised
-- [ ] URL resolver and processors
-- [ ] Firestore schema and rules
-- [ ] processUrl Cloud Function
-- [ ] scheduledIngest Cloud Function
-- [ ] generateDigest Cloud Function
-- [ ] goDeeper Cloud Function
-- [ ] Frontend reader UI
-- [ ] iOS Shortcut for quick URL submission
+- [x] URL resolver and processors (article, YouTube, GitHub, PDF, Substack, Twitter, podcast)
+- [x] Firestore schema and rules (content, digests, highlights, learningProfile, feeds)
+- [x] processUrl Cloud Function (all source types + email content path)
+- [x] scheduledIngest Cloud Function (RSS feeds, every 6 hours)
+- [x] generateDigest Cloud Function (daily 6pm UK, themed AI digest with Brevo email)
+- [x] Frontend reader UI (digest, library, add, highlights, item detail views)
+- [x] PWA with Android share target
+- [x] Highlighting + learning profile (save highlights, AI-generated profile feeds into digests)
+- [x] Gmail email ingestion via Apps Script (forward newsletters, auto-processed)
+- [x] Extraction quality metadata (confidence tracking for articles and YouTube)
+- [x] Centralised model config (per-stage model selection via env vars)
+
+### Backlog
+- [ ] goDeeper Cloud Function (backlogged — learning profile covers the need)
+- [ ] Reddit processor
+- [ ] Highlighting on digest page
+- [ ] Add Gmail Apps Script to repo for version control
 - [ ] GitHub README and documentation
+- [ ] Test Brevo email digest delivery end-to-end
+- [ ] Test Android PWA share target on device
