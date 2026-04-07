@@ -41,6 +41,12 @@
         "function": {
           "functionId": "generateDigest"
         }
+      },
+      {
+        "source": "/api/updateLearningProfile",
+        "function": {
+          "functionId": "updateLearningProfile"
+        }
       }
     ]
   }

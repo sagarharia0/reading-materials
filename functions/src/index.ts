@@ -5,6 +5,7 @@ import {onSchedule} from "firebase-functions/v2/scheduler";
 import {defineSecret} from "firebase-functions/params";
 import {handleProcessUrl} from "./processUrl.js";
 import {handleGenerateDigest} from "./generateDigest.js";
+import {handleGenerateLearningProfile} from "./generateLearningProfile.js";
 
 admin.initializeApp();
 
@@ -46,6 +47,25 @@ export const generateDigest = onRequest(
   async (_req, res) => {
     try {
       await handleGenerateDigest();
+      res.status(200).json({status: "ok"});
+    } catch (err) {
+      const msg = err instanceof Error ?
+        err.message : String(err);
+      res.status(500).json({error: msg});
+    }
+  }
+);
+
+/** Manual trigger for learning profile generation. */
+export const updateLearningProfile = onRequest(
+  {
+    secrets: [anthropicKey],
+    timeoutSeconds: 300,
+    memory: "512MiB",
+  },
+  async (_req, res) => {
+    try {
+      await handleGenerateLearningProfile();
       res.status(200).json({status: "ok"});
     } catch (err) {
       const msg = err instanceof Error ?

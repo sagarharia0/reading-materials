@@ -107,11 +107,13 @@ function getClient(): Anthropic {
  * Generates a daily digest from content items.
  * @param {DigestItem[]} newItems - New items since last digest.
  * @param {DigestItem[]} archiveItems - Older unread items.
+ * @param {string} learningProfile - Optional learning profile.
  * @return {Promise<DigestAiResult>} The generated digest.
  */
 export async function generateDigestContent(
   newItems: DigestItem[],
-  archiveItems: DigestItem[]
+  archiveItems: DigestItem[],
+  learningProfile?: string
 ): Promise<DigestAiResult> {
   const anthropic = getClient();
 
@@ -123,8 +125,16 @@ export async function generateDigestContent(
     formatItems("FROM THE ARCHIVE", archiveItems) :
     "";
 
+  const profileSection = learningProfile ?
+    "\n\nUSER'S LEARNING PROFILE " +
+    "(from their highlights — use to inform framing, " +
+    "but do not fabricate connections):\n" +
+    learningProfile :
+    "";
+
   const userContent =
-    `${newSection}\n\n${archiveSection}`.trim();
+    `${newSection}\n\n${archiveSection}${profileSection}`
+      .trim();
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",

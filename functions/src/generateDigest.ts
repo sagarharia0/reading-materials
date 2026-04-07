@@ -76,29 +76,46 @@ export async function handleGenerateDigest(): Promise<void> {
     return;
   }
 
-  // 3. Generate digest via Claude.
+  // 3. Load learning profile if available.
+  let profileSummary: string | undefined;
+  try {
+    const profileDoc = await db.collection("learningProfile")
+      .doc("current").get();
+    if (profileDoc.exists) {
+      const p = profileDoc.data();
+      if (p?.rawSummary) {
+        profileSummary = p.rawSummary;
+      }
+    }
+  } catch {
+    // Profile is optional — continue without it.
+  }
+
+  // 4. Generate digest via Claude.
   logger.info(
     `Generating digest: ${newItems.length} new, ` +
-    `${archiveItems.length} archive`
+    `${archiveItems.length} archive` +
+    (profileSummary ? ", with learning profile" : "")
   );
 
   const aiResult = await generateDigestContent(
     newItems,
-    archiveItems
+    archiveItems,
+    profileSummary
   );
 
-  // 4. Build item lookup for links in the digest.
+  // 5. Build item lookup for links in the digest.
   const allItems = [...newItems, ...archiveItems];
   const itemMap = new Map<string, DigestItem>();
   for (const item of allItems) {
     itemMap.set(item.id, item);
   }
 
-  // 5. Render to HTML and plain text.
+  // 6. Render to HTML and plain text.
   const htmlContent = renderDigestHtml(aiResult, itemMap);
   const textContent = renderDigestText(aiResult, itemMap);
 
-  // 6. Store the digest.
+  // 7. Store the digest.
   const digestDoc: DigestDocument = {
     date: Timestamp.now(),
     htmlContent,
@@ -112,7 +129,7 @@ export async function handleGenerateDigest(): Promise<void> {
     await db.collection("digests").add(digestDoc);
   logger.info(`Created digest ${digestRef.id}`);
 
-  // 7. Mark new items as digest_included.
+  // 8. Mark new items as digest_included.
   const batch = db.batch();
   for (const id of newIds) {
     batch.update(
@@ -125,7 +142,7 @@ export async function handleGenerateDigest(): Promise<void> {
     `Marked ${newIds.length} items as digest_included`
   );
 
-  // 8. Send email (if Brevo key is configured).
+  // 9. Send email (if Brevo key is configured).
   try {
     await sendDigestEmail(htmlContent, textContent);
   } catch (err) {

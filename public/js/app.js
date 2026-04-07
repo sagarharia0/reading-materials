@@ -734,8 +734,7 @@
         if (mode === 'by-article') {
           renderHighlightsByArticle(highlights);
         } else {
-          renderHighlightsByArticle(highlights);
-          // Theme view will use learning profile later
+          renderHighlightsByTheme(highlights);
         }
       })
       .catch(function (err) {
@@ -811,6 +810,137 @@
             showToast('error removing highlight', 'error');
           });
       });
+    });
+  }
+
+  function renderHighlightsByTheme(highlights) {
+    if (!db) return;
+
+    // Load learning profile first
+    db.collection('learningProfile').doc('current').get()
+      .then(function (doc) {
+        if (!doc.exists) {
+          highlightsContent.innerHTML =
+            '<div class="empty-state">' +
+            '<p>no learning profile yet.</p>' +
+            '<p style="color: var(--text-dim);">' +
+            'need at least 5 highlights to generate one</p>' +
+            '<button class="btn btn--primary" ' +
+            'id="btn-generate-profile" style="margin-top: 16px;">' +
+            'generate profile</button>' +
+            '</div>';
+          attachProfileButton();
+          return;
+        }
+
+        var p = doc.data();
+        var html = '';
+
+        // Profile summary
+        html += '<div class="profile-summary">';
+        html += '<div class="section-header">learning profile</div>';
+        html += '<div style="color: var(--text-muted); ' +
+          'font-size: 0.85rem; line-height: 1.6; ' +
+          'margin-bottom: var(--space-lg);">' +
+          escapeHtml(p.rawSummary || '') + '</div>';
+
+        // Interests
+        if (p.interests && p.interests.length > 0) {
+          html += '<div class="section-header">interests</div>';
+          p.interests.forEach(function (interest) {
+            var strengthColor = interest.strength === 'strong'
+              ? 'var(--green)' : interest.strength === 'moderate'
+                ? 'var(--yellow)' : 'var(--text-dim)';
+            html += '<div class="highlight-entry">';
+            html += '<div class="highlight-entry-text">' +
+              '<span style="color: ' + strengthColor + ';">' +
+              escapeHtml(interest.topic) + '</span>' +
+              ' <span style="color: var(--text-dim); ' +
+              'font-size: 0.75rem;">(' +
+              interest.evidenceCount + ' highlights, ' +
+              interest.strength + ')</span></div>';
+            html += '<div class="highlight-entry-context">' +
+              escapeHtml(interest.exampleHighlight) + '</div>';
+            html += '</div>';
+          });
+        }
+
+        // Knowledge gaps
+        if (p.knowledgeGaps && p.knowledgeGaps.length > 0) {
+          html += '<div class="section-header" ' +
+            'style="margin-top: var(--space-xl);">gaps</div>';
+          p.knowledgeGaps.forEach(function (gap) {
+            html += '<div class="highlight-entry">';
+            html += '<div class="highlight-entry-text">' +
+              escapeHtml(gap.topic) + '</div>';
+            html += '<div class="highlight-entry-context">' +
+              escapeHtml(gap.signal) + '</div>';
+            html += '</div>';
+          });
+        }
+
+        // Patterns
+        if (p.patterns && p.patterns.length > 0) {
+          html += '<div class="section-header" ' +
+            'style="margin-top: var(--space-xl);">patterns</div>';
+          p.patterns.forEach(function (pat) {
+            html += '<div class="highlight-entry">';
+            html += '<div class="highlight-entry-text">' +
+              escapeHtml(pat) + '</div>';
+            html += '</div>';
+          });
+        }
+
+        html += '</div>';
+
+        // Regenerate button
+        html += '<div style="margin-top: var(--space-xl); ' +
+          'text-align: center;">';
+        html += '<button class="btn" id="btn-generate-profile">' +
+          'regenerate profile</button>';
+        html += '<div style="color: var(--text-dim); ' +
+          'font-size: 0.75rem; margin-top: var(--space-sm);">' +
+          'based on ' + (p.highlightCount || 0) +
+          ' highlights</div>';
+        html += '</div>';
+
+        highlightsContent.innerHTML = html;
+        attachProfileButton();
+      })
+      .catch(function (err) {
+        console.error('Profile load error:', err);
+        highlightsContent.innerHTML =
+          '<div class="empty-state">' +
+          '<p style="color: var(--red);">error loading profile</p>' +
+          '</div>';
+      });
+  }
+
+  function attachProfileButton() {
+    var btn = document.getElementById('btn-generate-profile');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      btn.textContent = 'generating...';
+      btn.disabled = true;
+      fetch(apiBase + '/api/updateLearningProfile', {
+        method: 'POST'
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.error) {
+            showToast('error: ' + data.error, 'error');
+          } else {
+            showToast('profile updated', 'success');
+            loadHighlights();
+          }
+        })
+        .catch(function (err) {
+          showToast('error: ' + err.message, 'error');
+        })
+        .finally(function () {
+          btn.textContent = 'regenerate profile';
+          btn.disabled = false;
+        });
     });
   }
 
