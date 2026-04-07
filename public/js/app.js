@@ -582,6 +582,97 @@
   });
 
 
+  // ---- RSS Feeds Management ----
+
+  var feedForm = document.getElementById('feed-form');
+  var feedUrlInput = document.getElementById('feed-url-input');
+  var feedNameInput = document.getElementById('feed-name-input');
+  var feedsList = document.getElementById('feeds-list');
+
+  if (feedForm) {
+    feedForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var feedUrl = feedUrlInput.value.trim();
+      var feedName = feedNameInput.value.trim();
+      if (!feedUrl || !feedName || !db) return;
+
+      db.collection('feeds').add({
+        url: feedUrl,
+        name: feedName,
+        lastChecked: null
+      }).then(function () {
+        feedUrlInput.value = '';
+        feedNameInput.value = '';
+        showToast('feed added', 'success');
+        loadFeeds();
+      }).catch(function (err) {
+        showToast('error: ' + err.message, 'error');
+      });
+    });
+  }
+
+  function loadFeeds() {
+    if (!db || !feedsList) return;
+
+    db.collection('feeds').get()
+      .then(function (snapshot) {
+        if (snapshot.empty) {
+          feedsList.innerHTML =
+            '<div style="color: var(--text-dim); ' +
+            'font-size: 0.85rem; margin-top: var(--space-md);">' +
+            'no feeds configured</div>';
+          return;
+        }
+
+        var html = '';
+        snapshot.forEach(function (doc) {
+          var f = doc.data();
+          var checked = f.lastChecked && f.lastChecked.toDate
+            ? timeAgo(f.lastChecked.toDate())
+            : 'never';
+          html += '<div class="feed-item">';
+          html += '<div class="feed-item-info">';
+          html += '<span class="feed-item-name">' +
+            escapeHtml(f.name) + '</span>';
+          html += '<span class="feed-item-url">' +
+            escapeHtml(f.url) + '</span>';
+          html += '<span class="feed-item-checked">' +
+            'last checked: ' + checked + '</span>';
+          html += '</div>';
+          html += '<button class="highlight-entry-delete" ' +
+            'data-feed-id="' + doc.id + '">x</button>';
+          html += '</div>';
+        });
+
+        feedsList.innerHTML = html;
+
+        // Attach delete listeners.
+        feedsList.querySelectorAll(
+          '[data-feed-id]'
+        ).forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var id = btn.dataset.feedId;
+            if (!db || !id) return;
+            db.collection('feeds').doc(id).delete()
+              .then(function () {
+                showToast('feed removed', 'success');
+                loadFeeds();
+              })
+              .catch(function () {
+                showToast('error removing feed', 'error');
+              });
+          });
+        });
+      });
+  }
+
+  // Load feeds when switching to add view.
+  var origSwitchViewForFeeds = switchView;
+  switchView = function (name) {
+    origSwitchViewForFeeds(name);
+    if (name === 'add') loadFeeds();
+  };
+
   // ---- Highlighting ----
 
   var highlightBar = document.getElementById('highlight-bar');

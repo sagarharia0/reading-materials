@@ -10,8 +10,12 @@ import {extractGithub} from "./processors/github.js";
 import {extractPdf} from "./processors/pdf.js";
 import {extractTwitter} from "./processors/twitter.js";
 import {extractSubstack} from "./processors/substack.js";
+import {extractPodcast} from "./processors/podcast.js";
 import {summariseContent} from "./ai/summarise.js";
-import {ContentDocument, ExtractedContent, SourceType} from "./types.js";
+import {
+  ContentDocument, ExtractedContent,
+  ExtractionMeta, SourceType,
+} from "./types.js";
 
 /**
  * Routes to the correct processor for a given source type.
@@ -35,10 +39,7 @@ async function extractContent(
   case "twitter":
     return extractTwitter(url);
   case "podcast":
-    throw new Error(
-      "Podcast processing is not yet supported. " +
-      "Audio transcription requires a separate service."
-    );
+    return extractPodcast(url);
   default:
     return extractArticle(url);
   }
@@ -70,13 +71,6 @@ export async function handleProcessUrl(
 
   const sourceType = resolveSourceType(url);
 
-  if (sourceType === "podcast") {
-    res.status(400).json({
-      error: "Podcast processing is not yet supported",
-    });
-    return;
-  }
-
   const db = admin.firestore();
   const now = Timestamp.now();
 
@@ -105,11 +99,22 @@ export async function handleProcessUrl(
   try {
     const extracted = await extractContent(sourceType, url);
 
-    const enrichment = await summariseContent(
-      extracted.title,
-      extracted.fullText,
-      url
-    );
+    // If extraction returned no text (e.g. YouTube with
+    // no captions), still save the item but skip AI
+    // enrichment — the user can watch and take notes.
+    const hasContent = extracted.fullText.length > 0;
+
+    let enrichment = {summary: "", tags: [] as string[], deeperScore: 0};
+    if (hasContent) {
+      enrichment = await summariseContent(
+        extracted.title,
+        extracted.fullText,
+        url
+      );
+    }
+
+    const extractionMeta: ExtractionMeta | undefined =
+      extracted.extractionMeta;
 
     const update: Partial<ContentDocument> = {
       title: extracted.title,
@@ -117,22 +122,31 @@ export async function handleProcessUrl(
       datePublished: extracted.datePublished ?
         Timestamp.fromDate(extracted.datePublished) :
         null,
-      summary: enrichment.summary,
+      summary: hasContent ?
+        enrichment.summary :
+        "No transcript available — watch the video " +
+        "and add your own notes.",
       tags: enrichment.tags,
       deeperScore: enrichment.deeperScore,
       status: "processed",
+      extractionMeta,
     };
 
     await docRef.update(update);
-    logger.info(`Processed document ${docRef.id}`);
+    logger.info(
+      `Processed document ${docRef.id}` +
+      (extractionMeta ?
+        ` (confidence: ${extractionMeta.confidence})` : "")
+    );
 
     res.status(200).json({
       id: docRef.id,
       status: "processed",
       title: extracted.title,
-      summary: enrichment.summary,
+      summary: update.summary,
       tags: enrichment.tags,
       deeperScore: enrichment.deeperScore,
+      extractionConfidence: extractionMeta?.confidence,
     });
   } catch (err) {
     const message = err instanceof Error ?

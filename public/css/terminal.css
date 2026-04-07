@@ -550,6 +550,44 @@ body {
   background: var(--border-light);
 }
 
+/* -- Digest Navigation -- */
+.digest-nav {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  align-items: center;
+}
+
+.digest-nav .btn {
+  font-size: 0.75rem;
+}
+
+.digest-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+
+.digest-list-item:hover {
+  color: var(--accent);
+}
+
+.digest-list-item-date {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.digest-list-item-count {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
 /* -- Digest -- */
 .digest-intro {
   color: var(--text-muted);
@@ -660,6 +698,44 @@ body {
 .highlight-bar-preview::after {
   content: '"';
   color: var(--accent);
+}
+
+/* -- RSS Feed Items -- */
+.feed-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.feed-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.feed-item-name {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.feed-item-url {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-item-checked {
+  color: var(--text-dim);
+  font-size: 0.7rem;
 }
 
 /* -- Highlights in article text -- */

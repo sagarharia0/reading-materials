@@ -53,6 +53,34 @@
         </div>
       </form>
       <div id="submit-status"></div>
+
+      <hr class="divider" style="margin-top: var(--space-xl);">
+
+      <div class="section-header">rss feeds</div>
+      <form id="feed-form">
+        <div class="url-input-wrapper">
+          <span class="url-input-prompt">&gt;</span>
+          <input
+            type="url"
+            class="url-input"
+            id="feed-url-input"
+            placeholder="rss feed url..."
+            autocomplete="off"
+            required
+          >
+          <input
+            type="text"
+            class="url-input"
+            id="feed-name-input"
+            placeholder="name"
+            autocomplete="off"
+            style="max-width: 120px;"
+            required
+          >
+          <button type="submit" class="url-submit">add</button>
+        </div>
+      </form>
+      <div id="feeds-list"></div>
     </section>
 
     <!-- ============================================
