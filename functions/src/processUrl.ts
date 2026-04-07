@@ -62,6 +62,8 @@ export async function handleProcessUrl(
   }
 
   const url = req.body?.url;
+  const emailContent = req.body?.emailContent;
+
   if (!url || typeof url !== "string") {
     res.status(400).json({
       error: "Missing or invalid 'url' in request body",
@@ -69,15 +71,23 @@ export async function handleProcessUrl(
     return;
   }
 
-  const sourceType = resolveSourceType(url);
+  // Handle email content sent directly from Gmail.
+  const isEmail = url.startsWith("email://") &&
+    emailContent;
+
+  const sourceType: SourceType = isEmail ?
+    "article" : resolveSourceType(url);
 
   const db = admin.firestore();
   const now = Timestamp.now();
 
   // Write a queued document so the URL is never lost.
   const queuedDoc: ContentDocument = {
-    title: "",
-    sourceUrl: url,
+    title: isEmail ?
+      (emailContent.subject || "") : "",
+    sourceUrl: isEmail ?
+      `email://${emailContent.subject || "untitled"}` :
+      url,
     sourceType,
     dateAdded: now,
     datePublished: null,
@@ -97,7 +107,19 @@ export async function handleProcessUrl(
   );
 
   try {
-    const extracted = await extractContent(sourceType, url);
+    // If this is email content, skip extraction —
+    // the text was sent directly from Gmail.
+    let extracted: ExtractedContent;
+    if (isEmail) {
+      extracted = {
+        title: emailContent.subject || "Email",
+        fullText: emailContent.body || "",
+        sourceType: "article",
+        datePublished: null,
+      };
+    } else {
+      extracted = await extractContent(sourceType, url);
+    }
 
     // If extraction returned no text (e.g. YouTube with
     // no captions), still save the item but skip AI
