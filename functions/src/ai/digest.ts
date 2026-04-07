@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {DigestItem} from "../types.js";
+import {getModel} from "./models.js";
 
 /* eslint-disable max-len */
 const SYSTEM_PROMPT = [
@@ -137,7 +138,7 @@ export async function generateDigestContent(
       .trim();
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: getModel("digest"),
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     messages: [{role: "user", content: userContent}],

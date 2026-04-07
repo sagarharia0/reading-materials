@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {AiEnrichment} from "../types.js";
+import {getModel} from "./models.js";
 
 const MAX_INPUT_LENGTH = 80_000;
 
@@ -73,7 +74,7 @@ export async function summariseContent(
     `Title: ${title}\nSource: ${sourceUrl}\n\n${truncatedText}`;
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: getModel("summarise"),
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
     messages: [{role: "user", content: userContent}],

@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import {getModel} from "./models.js";
 
 /* eslint-disable max-len */
 const SYSTEM_PROMPT = [
@@ -108,7 +109,7 @@ export async function analyseLearningProfile(
     items.join("\n\n");
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: getModel("learningProfile"),
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     messages: [{role: "user", content: userContent}],

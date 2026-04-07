@@ -10,12 +10,27 @@ export type SourceType =
   | "pdf"
   | "other";
 
+/** Confidence level for content extraction quality. */
+export type ExtractionConfidence = "high" | "partial" | "none";
+
+/** Metadata about how extraction went. */
+export interface ExtractionMeta {
+  wordCount: number;
+  confidence: ExtractionConfidence;
+  confidenceReason: string;
+  durationSeconds?: number;
+  expectedWordCount?: number;
+  firstChars?: string;
+  lastChars?: string;
+}
+
 /** What a processor returns before AI enrichment. */
 export interface ExtractedContent {
   title: string;
   fullText: string;
   sourceType: SourceType;
   datePublished: Date | null;
+  extractionMeta?: ExtractionMeta;
 }
 
 /** What the AI summariser returns. */
@@ -41,6 +56,7 @@ export interface ContentDocument {
   notes: string;
   deepDive: string | null;
   failureReason?: string;
+  extractionMeta?: ExtractionMeta;
 }
 
 /** A daily digest document. */

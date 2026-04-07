@@ -109,9 +109,12 @@ Every URL submitted goes through a resolver that:
 - `firebase emulators:start` — local development
 - `firebase functions:shell` — test functions locally
 
+## Session Management
+If this conversation has involved significant progress (multiple features built, major decisions made, or tricky problems solved), proactively suggest running `/save-session` before wrapping up. Session logs live in `sessions/` and preserve the reasoning and context that code alone doesn't capture. Don't wait to be asked — nudge the user when it would be valuable.
+
 ## Current Status
 [Update this as you build]
-- [ ] Firebase project initialised
+- [x] Firebase project initialised
 - [ ] URL resolver and processors
 - [ ] Firestore schema and rules
 - [ ] processUrl Cloud Function
